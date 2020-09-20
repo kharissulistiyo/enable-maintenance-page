@@ -1,0 +1,26 @@
+/**
+ * General structure
+ */
+
+ .emp-container > * {
+   margin: 36px auto;
+   max-width: 580px;
+   padding-left: 14px;
+   padding-right: 14px;
+ }
+
+ .emp-container > .alignwide {
+   max-width: 1070px;
+ }
+
+ .emp-container > .alignfull {
+   margin: 1.5em 0;
+   max-width: 100%;
+ }
+
+ @media screen and (min-width: 608px) {
+   .emp-container > * {
+     padding-left: 0px;
+     padding-right: 0px;
+   }
+ }
