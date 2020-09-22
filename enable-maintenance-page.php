@@ -26,6 +26,7 @@
 defined( 'ABSPATH' ) or die( __('Not Authorized!', 'enable-maintenance-page') );
 
 define( 'EMP_FILE', __FILE__ );
+define( 'EMP_DIRECTORY', dirname(__FILE__) );
 define( 'EMP_DIRECTORY_URL', plugins_url( null, EMP_FILE ) );
 
 if ( !class_exists('Enable_Maintenance_Page') ) :
@@ -41,11 +42,46 @@ if ( !class_exists('Enable_Maintenance_Page') ) :
     public function __construct() {
 
       add_action( 'admin_init', array($this, 'plugin_settings') );
-      add_action( 'init', array($this, 'run_maintenance_mode'));
+      add_action( 'pre_get_posts', array($this, 'modify_query'));
+      add_action( 'template_redirect', array($this, 'display_maintenance_page') );
       add_action( 'wp_enqueue_scripts', array($this, 'enqueue_scripts'), 9999 );
       add_filter( 'amp_container_selector', array($this, 'container_selector') );
-      add_action( 'emp_content_before', array($this, 'emp_content_before'), 10 );
-      add_action( 'emp_content_after', array($this, 'emp_content_after'), 10 );
+      add_action( 'emp_content_before', array($this, 'content_before'), 10 );
+      add_action( 'emp_content_after', array($this, 'content_after'), 10 );
+
+      // debug
+      // add_action( 'storefront_before_site', array($this, 'debug'));
+
+    }
+
+    function debug() {
+      echo '<h1>Debug:</h1>';
+      global $wp_query;
+      var_dump($wp_query);
+    }
+
+    /**
+     * Modify main query on front-end when maintenance mode is enabled.
+     *
+     * @param $query current query
+     * @return obj
+     */
+    function modify_query($query) {
+
+      if( false == $this->is_emp_active() ) {
+        return $query;
+      }
+
+      if( (true == $this->is_emp_active()) && ('0' != $this->emp_page_id()) ) {
+
+        if ( !is_admin() && $query->is_main_query() ) {
+          $query->set('post_type', 'page');
+          $query->set('page_id', $this->emp_page_id());
+        }
+
+      }
+
+      return $query;
 
     }
 
@@ -71,10 +107,10 @@ if ( !class_exists('Enable_Maintenance_Page') ) :
     /**
      * Before content wrapper.
      *
-     * @return string
+     * @return void
      */
-    function emp_content_before() {
-      return '<div class="emp-container">';
+    function content_before() {
+      echo '<div class="emp-page-container">';
     }
 
     /**
@@ -82,8 +118,8 @@ if ( !class_exists('Enable_Maintenance_Page') ) :
      *
      * @return string
      */
-    function emp_content_after() {
-      return '</div><!-- /.emp-container -->';
+    function content_after() {
+      echo '</div><!-- /.emp-page-container -->';
     }
 
     /**
@@ -185,7 +221,7 @@ if ( !class_exists('Enable_Maintenance_Page') ) :
 
       echo '<input id="emp_container" name="emp_container" class="medium-text" type="text" value="' . esc_attr($val) . '" />';
 
-      echo '<p>'.__('CSS selector for page content container. It should match with your theme to retain the current theme\'s styles. <br /> For example, enter <em><code>class="entry-content"</code></em>, if you use Twenty Twenty theme.', 'enable-maintenance-page').'<p>';
+      echo '<p>'.__('CSS selector for page content container. It should match with your theme to retain the current theme\'s styles. <br /> For example, enter <em><code>class="entry-content"</code></em>, if you use Twenty Twenty theme. In case you can\'t find the selector to use, enter <em><code>class="emp-container"</code></em>.', 'enable-maintenance-page').'<p>';
 
     }
 
@@ -207,6 +243,7 @@ if ( !class_exists('Enable_Maintenance_Page') ) :
       } else {
         return false;
       }
+
     }
 
     /**
@@ -220,124 +257,16 @@ if ( !class_exists('Enable_Maintenance_Page') ) :
     }
 
     /**
-     * Page content.
+     * Display maintenance page.
      *
-     * @return string
+     * @return void
      */
-    function emp_content() {
+    function display_maintenance_page() {
 
-      ob_start();
-
-      $page = get_post( $this->emp_page_id() );
-      $content = $page->post_content;
-
-      $container_class = 'emp-container';
-
-      do_action('emp_content_before');
-
-      ?>
-
-      <div <?php echo apply_filters('amp_container_selector', $container_class); ?>>
-        <?php echo $content; ?>
-      </div>
-
-      <?php
-
-      do_action('emp_content_after');
-
-      $html = ob_get_contents();
-
-      ob_end_clean();
-
-      return $html;
-
-    }
-
-    /**
-     * Run maintenance mode on front-end only.
-     */
-    function run_maintenance_mode() {
-
-      if( false == $this->is_emp_active() ) {
-        return;
+      if( (true == $this->is_emp_active()) && ('0' != $this->emp_page_id()) ) {
+        require_once( EMP_DIRECTORY . '/include/render-template.php' );
+        exit;
       }
-
-      if( '0' == $this->emp_page_id() ) {
-        return;
-      }
-
-      // Login URL for the admin.
-  		$login_url = wp_login_url();
-
-  		// Checking for the server protocol status.
-  		$protocol = isset( $_SERVER['HTTPS'] ) ? 'https' : 'http';
-
-  		// Server address of the current page.
-  		$server_url = $protocol . '://' . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
-
-      // Not for the backend.
-      if ( ! is_admin() ) {
-
-          // Check WordPress pages to bypass.
-          if ( false === strpos( $server_url, $login_url )
-            && false === strpos( $server_url, '/plugins/' )
-            && false === strpos( $server_url, '/wp-admin/' )
-            && false === strpos( $server_url, '/xmlrpc.php' )
-            && false === strpos( $server_url, '/upgrade.php' )
-            && false === strpos( $server_url, '/wp-login.php' )
-            && false === strpos( $server_url, '/async-upload.php' ) ) {
-
-            // Flush WP Super Cache plugin.
-        		if ( function_exists( 'w3tc_pgcache_flush' ) ) {
-        			ob_end_clean();
-        			w3tc_pgcache_flush();
-        		}
-
-            // Flush cache
-            if ( function_exists( 'wp_cache_clear_cache' ) ) {
-        			ob_end_clean();
-        			wp_cache_clear_cache();
-        		}
-
-        		// nocache_headers() allows web browsers to not cache the maintenance page.
-        		nocache_headers();
-
-        		ob_start();
-
-            ?>
-            <!DOCTYPE html>
-            <html <?php language_attributes(); ?>>
-            <head>
-            <meta charset="<?php bloginfo( 'charset' ); ?>">
-            <meta name="viewport" content="width=device-width, initial-scale=1">
-            <link rel="profile" href="http://gmpg.org/xfn/11">
-            <link rel="pingback" href="<?php bloginfo( 'pingback_url' ); ?>">
-            <?php if ( ! function_exists( 'has_site_icon' ) || ! has_site_icon() ) : ?>
-            	<?php if ( get_theme_mod('site_favicon') ) : ?>
-            		<link rel="shortcut icon" href="<?php echo esc_url(get_theme_mod('site_favicon')); ?>" />
-            	<?php endif; ?>
-            <?php endif; ?>
-
-            <?php wp_head(); ?>
-
-            </head>
-
-            <body <?php body_class(); ?>>
-
-              <?php echo apply_filters( 'emp_content', $this->emp_content() ); ?>
-
-              <?php wp_footer(); ?>
-
-            </body>
-            </html>
-
-            <?php
-
-            ob_flush(); exit;
-
-          }
-
-      } // ! is_admin()
 
     }
 
