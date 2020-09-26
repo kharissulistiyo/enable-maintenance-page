@@ -12,7 +12,7 @@
  * Plugin Name: Enable Maintenance Page
  * Plugin URI:  https://easyfixwp.com/blog/enable-maintenance-mode-plugin/
  * Description: WordPress plugin that helps quickly enable maintenance mode for visitors and display content from a specific page during maintenance mode.
- * Version:     0.0.1
+ * Version:     1.0.0
  * Author:      kharisblank
  * Author URI:  https://easyfixwp.com
  * Text Domain: enable-maintenance-page
