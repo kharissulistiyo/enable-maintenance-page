@@ -1,6 +1,10 @@
 # Enable Maintenance Page
 WordPress plugin that helps quickly enable maintenance mode for visitors and display content from a specific page during maintenance mode.
 
+### Download
+
+* https://wordpress.org/plugins/enable-maintenance-page/
+
 ### Documentation
 
 * https://easyfixwp.com/blog/enable-maintenance-mode-plugin/
